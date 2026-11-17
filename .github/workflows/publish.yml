@@ -1,0 +1,56 @@
+name: Validate and publish
+on:
+  push:
+    paths: ['release/**', 'test_updater.py', '.github/workflows/publish.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Test updater and Tkinter
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = "$pwd/release"
+          python test_updater.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          python -c "import tkinter as tk; from pet import SheHuiJie; r=tk.Tk(); p=SheHuiJie(r); r.update(); p.pet(); p.toggle_state(); r.update(); r.destroy()"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build allowlisted ZIP
+        shell: python
+        run: |
+          import sys, pathlib, zipfile, hashlib, json
+          sys.path.insert(0, 'release')
+          import updater
+          with zipfile.ZipFile('shehuijie.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+              for name in sorted(updater.FILES):
+                  z.write(pathlib.Path('release')/name, name)
+          digest=hashlib.sha256(pathlib.Path('shehuijie.zip').read_bytes()).hexdigest()
+          pathlib.Path('shehuijie.zip.sha256').write_text(digest+'  shehuijie.zip\n')
+          m={'version':updater.VERSION,'url':f'https://github.com/{updater.REPO}/releases/download/v{updater.VERSION}/shehuijie.zip','sha256':digest,'notes':'自动检查并下载更新，确认后安装；SHA-256 校验、备份、启动失败回滚和日志。'}
+          pathlib.Path('latest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding='utf-8')
+      - name: Publish release then update manifest
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $manifest = Get-Content -Raw latest.json | ConvertFrom-Json
+          $tag = "v$($manifest.version)"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -eq 0) { throw 'Version already published; increment version.json before releasing again.' }
+          gh release create $tag shehuijie.zip shehuijie.zip.sha256 --title "社会姐 $tag" --notes $manifest.notes --target '${{ github.sha }}'
+          if ($LASTEXITCODE -ne 0) { throw 'Release publish failed' }
+          $existing = gh api 'repos/${{ github.repository }}/contents/latest.json' 2>$null | ConvertFrom-Json
+          $payload = @{message='Publish verified update manifest'; content=[Convert]::ToBase64String([IO.File]::ReadAllBytes("$pwd/latest.json")); branch='main'}
+          if ($existing.sha) { $payload.sha=$existing.sha }
+          $payload | ConvertTo-Json | Set-Content -Encoding utf8 manifest-request.json
+          gh api --method PUT 'repos/${{ github.repository }}/contents/latest.json' --input manifest-request.json
+          if ($LASTEXITCODE -ne 0) { throw 'Manifest publish failed' }
