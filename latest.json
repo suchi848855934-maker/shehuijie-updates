@@ -1,6 +1,6 @@
 {
-  "version": "1.1.0",
-  "url": "https://github.com/suchi848855934-maker/shehuijie-updates/releases/download/v1.1.0/shehuijie.zip",
-  "sha256": "99fe6b5d2cab763cbd0b141e013bbcd69dfb26548789bb84f4a4e3341126d3d4",
-  "notes": "自动检查并下载更新，确认后安装；SHA-256 校验、备份、启动失败回滚和日志。"
+  "version": "1.2.0",
+  "url": "https://github.com/suchi848855934-maker/shehuijie-updates/releases/download/v1.2.0/shehuijie.zip",
+  "sha256": "467b6aa13e2aebb01d523b1d4ea2c72c3c3d1bef57ed6464a3f0888f20ec983b",
+  "notes": "新增陪伴小屋、喂食成长、本机情境回应、专注计时、位置记忆与安静模式。"
 }
