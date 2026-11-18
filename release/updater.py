@@ -43,19 +43,38 @@ def check():
 def attach(root):
     from tkinter import messagebox
     q = queue.Queue()
+    busy = False
     def worker():
         try: q.put(('ok', check()))
         except Exception: log.exception('检查或下载失败'); q.put(('error', None))
-    def poll():
+    def start(manual=False):
+        nonlocal busy
+        if busy:
+            if manual: messagebox.showinfo('更新', '正在检查或下载，请稍候。', parent=root)
+            return
+        busy = True
+        threading.Thread(target=worker, daemon=True).start()
+        root.after(250, lambda: poll(manual))
+    def poll(manual):
+        nonlocal busy
         try: status, m = q.get_nowait()
-        except queue.Empty: root.after(250, poll); return
+        except queue.Empty: root.after(250, lambda: poll(manual)); return
+        busy = False
         if status=='ok' and m:
             if messagebox.askyesno('社会姐更新已下载', f'新版本 {m["version"]}\n\n{str(m.get("notes", ""))[:5000]}\n\n已通过 SHA-256 校验。现在安装并重启？', parent=root):
-                helper = STATE/'install_helper.py'; shutil.copy2(__file__, helper)
-                subprocess.Popen([sys.executable, str(helper), '--install', str(ROOT), str(os.getpid())], cwd=STATE)
+                try:
+                    helper = STATE/'install_helper.py'; shutil.copy2(__file__, helper)
+                    subprocess.Popen([sys.executable, str(helper), '--install', str(ROOT), str(os.getpid())], cwd=STATE)
+                except OSError:
+                    log.exception('无法启动安装器')
+                    messagebox.showerror('暂时无法安装','请检查目录写入权限，稍后再试。当前宠物可继续使用。',parent=root)
+                    return
                 root.destroy()
-        elif status=='error': log.info('下次启动重试；当前版本继续运行')
-    threading.Thread(target=worker, daemon=True).start(); root.after(250, poll)
+        elif manual:
+            if status=='ok': messagebox.showinfo('更新', f'已是最新版本 {VERSION}。',parent=root)
+            else: messagebox.showwarning('更新暂不可用','网络连接或校验失败。请稍后再试，详情已写入本机日志。',parent=root)
+    root.after(3000, start)
+    return start
 
 def install(target, pid):
     import ctypes

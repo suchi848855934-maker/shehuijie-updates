@@ -10,7 +10,7 @@ import random
 import time
 
 KEY = "#ff00ff"  # Windows 透明色键
-W, H = 260, 250
+W, H = 260, 290
 
 class SheHuiJie:
     def __init__(self, root):
@@ -29,6 +29,8 @@ class SheHuiJie:
         self.x, self.y = 180, 180
         self.dx = 1.3
         self.state = "walk"
+        self.roaming = True
+        self.happy_until = 0
         self.frame = 0
         self.drag = None
         self.last_click = 0
@@ -47,6 +49,7 @@ class SheHuiJie:
         self.canvas.bind("<Double-Button-1>", lambda e: self.pet())
         self.canvas.bind("<Button-3>", self.popup)
         self.root.bind("<Escape>", lambda e: root.destroy())
+        self.canvas.create_text(130, 274, text="陪伴小屋  ·  点这里", font=("Microsoft YaHei UI", 9), fill="#496654", tags="entry")
         self.draw()
         self.tick()
 
@@ -70,6 +73,7 @@ class SheHuiJie:
 
     def pet(self):
         self.state = "happy"
+        self.happy_until = time.time() + 3
         self.bubble_text = random.choice(["摸够了吗？", "本姐今天心情不错。", "给朕拿小鱼干！", "社会姐罩着你！"])
         self.bubble_until = time.time() + 2.8
 
@@ -176,27 +180,29 @@ class SheHuiJie:
 
     def draw(self):
         self.draw_cat()
+        self.canvas.move("cat", 0, 40)
         if time.time() < self.bubble_until:
             self.canvas.delete("bubble")
-            self.canvas.create_rectangle(28, 0, 232, 31, fill="#fff8e9",
+            self.canvas.create_rectangle(8, 3, 252, 64, fill="#fff8e9",
                                          outline="#9a7854", width=2,
                                          tags="bubble")
-            self.canvas.create_text(130, 15, text=self.bubble_text,
-                                    font=("Microsoft YaHei", 10, "bold"),
+            self.canvas.create_text(130, 33, text=self.bubble_text, width=226,
+                                    font=("Microsoft YaHei UI", 9),
                                     fill="#4b3425", tags="bubble")
         else:
             self.canvas.delete("bubble")
 
     def tick(self):
         self.frame += 1
-        if self.state == "walk" and not self.drag:
+        if self.state == "walk" and self.roaming and not self.drag:
             self.x += self.dx
             # 轻微来回走动，避免无限跑出屏幕
             sw = self.root.winfo_screenwidth()
             if self.x < 10 or self.x > sw - W - 10:
                 self.dx *= -1
+                self.x = max(10, min(self.x, max(10, sw-W-10)))
             self.root.geometry(f"+{int(self.x)}+{int(self.y)}")
-        if self.state == "happy" and self.frame % 24 == 0:
+        if self.state == "happy" and time.time() >= self.happy_until:
             self.state = "walk"
         self.draw()
         self.root.after(90, self.tick)

@@ -20,6 +20,8 @@ jobs:
         shell: pwsh
         run: |
           $env:PYTHONPATH = "$pwd/release"
+          python test_mind.py
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python test_updater.py
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           python -c "import tkinter as tk; from pet import SheHuiJie; r=tk.Tk(); p=SheHuiJie(r); r.update(); p.pet(); p.toggle_state(); r.update(); r.destroy()"
@@ -35,7 +37,7 @@ jobs:
                   z.write(pathlib.Path('release')/name, name)
           digest=hashlib.sha256(pathlib.Path('shehuijie.zip').read_bytes()).hexdigest()
           pathlib.Path('shehuijie.zip.sha256').write_text(digest+'  shehuijie.zip\n')
-          m={'version':updater.VERSION,'url':f'https://github.com/{updater.REPO}/releases/download/v{updater.VERSION}/shehuijie.zip','sha256':digest,'notes':'自动检查并下载更新，确认后安装；SHA-256 校验、备份、启动失败回滚和日志。'}
+          m={'version':updater.VERSION,'url':f'https://github.com/{updater.REPO}/releases/download/v{updater.VERSION}/shehuijie.zip','sha256':digest,'notes':'新增陪伴小屋、喂食成长、本机情境回应、专注计时、位置记忆与安静模式。'}
           pathlib.Path('latest.json').write_text(json.dumps(m,ensure_ascii=False,indent=2),encoding='utf-8')
       - name: Publish release then update manifest
         shell: pwsh
